@@ -5,10 +5,17 @@ $expect = 132784041
 $zip = Join-Path $here "aifupan-live-recording-tool-0.1.0-full.zip"
 try {
   Write-Host "正在下载完整包 (约127MB) ..." -ForegroundColor Cyan
-  & curl.exe -L --fail --retry 3 -o "$zip" "$url"
-  if ($LASTEXITCODE -ne 0) { throw "curl 下载失败，退出码 $LASTEXITCODE" }
+  if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
+  try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    (New-Object System.Net.WebClient).DownloadFile($url, $zip)
+  } catch {
+    Write-Host "内置下载失败，改用 curl 重试 ..." -ForegroundColor Yellow
+    & curl.exe -L --fail --retry 3 -o "$zip" "$url"
+    if ($LASTEXITCODE -ne 0) { throw ("curl 下载失败，退出码 " + $LASTEXITCODE) }
+  }
   $sz = (Get-Item -LiteralPath $zip).Length
-  if ($sz -ne $expect) { throw "文件大小不符：$sz（应为 $expect）" }
+  if ($sz -ne $expect) { throw ("文件大小不符: $sz (应为 $expect)") }
   Write-Host "下载完成并通过大小校验。" -ForegroundColor Green
   Write-Host "正在解压 ..." -ForegroundColor Cyan
   Expand-Archive -LiteralPath $zip -DestinationPath $here -Force
